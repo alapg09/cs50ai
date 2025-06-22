@@ -214,47 +214,45 @@ class MinesweeperAI():
         newSentence = Sentence(newSentenceCells, count)
         self.knowledge.append(newSentence)
 
-        # 4
-        newMines = set()
-        newSafes = set()
+        # 4 & 5. Repeatedly infer new knowledge
+        while True:
+            new_mines = set()
+            new_safes = set()
 
-        for sentence in self.knowledge:
-            for mine in sentence.known_mines():
-                if mine not in self.mines:
-                    newMines.add(mine)
-            for safe in sentence.known_safes():
-                if safe not in self.safes:
-                    newSafes.add(safe)
+            for sentence in self.knowledge:
+                new_mines |= sentence.known_mines() - self.mines
+                new_safes |= sentence.known_safes() - self.safes
 
-        for mine in newMines:
-            self.mark_mine(mine)
-        for safe in newSafes:
-            self.mark_safe(safe)
+            if not new_mines and not new_safes:
+                break
 
+            for cell in new_mines:
+                self.mark_mine(cell)
+            for cell in new_safes:
+                self.mark_safe(cell)
 
-        # 5
+        # Repeat inference for subset logic
+        new_inferred = True
+        while new_inferred:
+            new_inferred = False
+            new_sentences = []
 
-        newKnowledge = []
-        for sentence1 in self.knowledge:
-            for sentence2 in self.knowledge:
-                if sentence1 != sentence2 and sentence1.cells.issubset(sentence2.cells):
-                    newCells = sentence2.cells - sentence1.cells
-                    newCount = sentence2.count - sentence1.count
-                    newKnowledge.append(Sentence(newCells, newCount))
+            for s1 in self.knowledge:
+                for s2 in self.knowledge:
+                    if s1 == s2 or not s1.cells or not s2.cells:
+                        continue
+                    if s1.cells.issubset(s2.cells):
+                        new_cells = s2.cells - s1.cells
+                        new_count = s2.count - s1.count
+                        new_sentence = Sentence(new_cells, new_count)
+                        if new_sentence not in self.knowledge and new_sentence not in new_sentences:
+                            new_sentences.append(new_sentence)
+                            new_inferred = True
 
-        for sentence in newKnowledge:
-            if sentence not in self.knowledge:
-                self.knowledge.append(sentence)
+            self.knowledge.extend(new_sentences)
 
-        # remove empty sentences
-        emptySentences = []
-        for sentence in self.knowledge:
-            if len(sentence.cells) == 0:
-                emptySentences.append(sentence)
-
-        for sentence in emptySentences:
-            self.knowledge.remove(sentence)
-
+        # Clean up empty sentences
+        self.knowledge = [s for s in self.knowledge if s.cells]
 
 
 
